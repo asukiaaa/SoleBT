@@ -16,6 +16,9 @@
 #include <BLE_API.h>
 #include <Servo.h>
 
+#define SOLENOID_ON_MILLIS 100
+#define SOLENOID_VIBE_MILLIS 40
+
 #define TXRX_BUF_LEN                      20
 
 #ifdef RBL_NRF51822
@@ -27,7 +30,7 @@
 #endif
 
 #ifdef BLE_NANO
-#define DIGITAL_OUT_PIN                   D2
+#define DIGITAL_OUT_PIN                   A3
 #define DIGITAL_IN_PIN                    D3
 #define PWM_PIN                           D4
 #define SERVO_PIN                         D5
@@ -61,7 +64,7 @@ void disconnectionCallBack(const Gap::DisconnectionCallbackParams_t *params) {
   Serial.println("Disconnected!");
   Serial.println("Restarting the advertising process");
   ble.startAdvertising();
-}
+}\
 
 void gattServerWriteCallBack(const GattWriteCallbackParams *Handler) {
   uint8_t buf[TXRX_BUF_LEN];
@@ -79,10 +82,13 @@ void gattServerWriteCallBack(const GattWriteCallbackParams *Handler) {
     //Process the data
     if (buf[0] == 0x01) {
       // Command is to control digital out pin
-      if (buf[1] == 0x01)
+      if (buf[1] == 0x01) {
         digitalWrite(DIGITAL_OUT_PIN, HIGH);
-      else
+        delay(SOLENOID_ON_MILLIS);
         digitalWrite(DIGITAL_OUT_PIN, LOW);
+      } else {
+        digitalWrite(DIGITAL_OUT_PIN, LOW);
+      }
     }
     else if (buf[0] == 0xA0) {
       // Command is to enable analog in reading
@@ -92,7 +98,14 @@ void gattServerWriteCallBack(const GattWriteCallbackParams *Handler) {
         analog_enabled = false;
     }
     else if (buf[0] == 0x02) {
-      // Command is to control PWM pin
+      if (100 < buf[1]) {
+        for (int j=0; j<5; j++) {
+          digitalWrite(DIGITAL_OUT_PIN, HIGH);
+          delay(SOLENOID_VIBE_MILLIS);
+          digitalWrite(DIGITAL_OUT_PIN, LOW);
+          delay(SOLENOID_VIBE_MILLIS);
+        }
+      }
       analogWrite(PWM_PIN, buf[1]);
     }
     else if (buf[0] == 0x03)  {
@@ -150,7 +163,7 @@ void setup() {
   // setup adv_data and srp_data
   ble.accumulateAdvertisingPayload(GapAdvertisingData::BREDR_NOT_SUPPORTED);
   ble.accumulateAdvertisingPayload(GapAdvertisingData::SHORTENED_LOCAL_NAME,
-                                   (const uint8_t *)"TXRX", sizeof("TXRX") - 1);
+                                   (const uint8_t *)"SoleBT", sizeof("SoleBT") - 1);
   ble.accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LIST_128BIT_SERVICE_IDS,
                                    (const uint8_t *)uart_base_uuid_rev, sizeof(uart_base_uuid_rev));
   // set adv_type
