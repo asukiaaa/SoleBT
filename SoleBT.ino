@@ -59,12 +59,13 @@ GattCharacteristic  characteristic2(service1_rx_uuid, rx_value, 1, TXRX_BUF_LEN,
 GattCharacteristic *uartChars[] = {&characteristic1, &characteristic2};
 GattService         uartService(service1_uuid, uartChars, sizeof(uartChars) / sizeof(GattCharacteristic *));
 
+int solenoidPowerValue = 0;
 
 void disconnectionCallBack(const Gap::DisconnectionCallbackParams_t *params) {
   Serial.println("Disconnected!");
   Serial.println("Restarting the advertising process");
   ble.startAdvertising();
-}\
+}
 
 void gattServerWriteCallBack(const GattWriteCallbackParams *Handler) {
   uint8_t buf[TXRX_BUF_LEN];
@@ -82,12 +83,17 @@ void gattServerWriteCallBack(const GattWriteCallbackParams *Handler) {
     //Process the data
     if (buf[0] == 0x01) {
       // Command is to control digital out pin
-      if (buf[1] == 0x01) {
+      //if (buf[1] == 0x01) {
+      //  digitalWrite(DIGITAL_OUT_PIN, HIGH);
+      //} else {
+      //  digitalWrite(DIGITAL_OUT_PIN, LOW);
+      //}
+      int solenoidVibeTime = max(1, solenoidPowerValue / 20);
+      for (int j=0; j<solenoidVibeTime; j++) {
         digitalWrite(DIGITAL_OUT_PIN, HIGH);
-        delay(SOLENOID_ON_MILLIS);
+        delay(SOLENOID_VIBE_MILLIS);
         digitalWrite(DIGITAL_OUT_PIN, LOW);
-      } else {
-        digitalWrite(DIGITAL_OUT_PIN, LOW);
+        delay(SOLENOID_VIBE_MILLIS);
       }
     }
     else if (buf[0] == 0xA0) {
@@ -98,14 +104,7 @@ void gattServerWriteCallBack(const GattWriteCallbackParams *Handler) {
         analog_enabled = false;
     }
     else if (buf[0] == 0x02) {
-      if (100 < buf[1]) {
-        for (int j=0; j<5; j++) {
-          digitalWrite(DIGITAL_OUT_PIN, HIGH);
-          delay(SOLENOID_VIBE_MILLIS);
-          digitalWrite(DIGITAL_OUT_PIN, LOW);
-          delay(SOLENOID_VIBE_MILLIS);
-        }
-      }
+      solenoidPowerValue = buf[1];
       analogWrite(PWM_PIN, buf[1]);
     }
     else if (buf[0] == 0x03)  {
